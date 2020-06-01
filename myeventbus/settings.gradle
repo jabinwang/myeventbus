@@ -1,2 +1,3 @@
+include ':myeventbusref'
 rootProject.name='myeventbus'
 include ':app'
