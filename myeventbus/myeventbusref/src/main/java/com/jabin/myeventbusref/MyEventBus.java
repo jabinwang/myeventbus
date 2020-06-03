@@ -19,20 +19,24 @@ import java.util.concurrent.Executors;
 public class MyEventBus {
     private static volatile MyEventBus instance;
 
-    private Map<Object , List<MethodFinder>> cacheMap;
+    private Map<Object, List<MethodFinder>> cacheMap;
     private Handler handler;
     private ExecutorService executorService;
+    private Poster mainThreadPoster;
+    private Poster asyncPoster;
 
-    private MyEventBus(){
+    private MyEventBus() {
         cacheMap = new HashMap<>();
         handler = new Handler(Looper.getMainLooper());
         executorService = Executors.newCachedThreadPool();
+        mainThreadPoster = new HandlePoster(this, Looper.getMainLooper(), 10);
+        asyncPoster = new AsyncPoster(this);
     }
 
-    public static MyEventBus getInstance(){
+    public static MyEventBus getInstance() {
         if (instance == null) {
             synchronized (MyEventBus.class) {
-                if (instance ==null) {
+                if (instance == null) {
                     instance = new MyEventBus();
                 }
             }
@@ -48,24 +52,25 @@ public class MyEventBus {
         }
     }
 
-    public void post(final Object event){
+    public void post(final Object event) {
         Set<Object> set = cacheMap.keySet();
         for (final Object obj : set) {
             List<MethodFinder> methodFinderList = cacheMap.get(obj);
-            if (methodFinderList != null && !methodFinderList.isEmpty()){
+            if (methodFinderList != null && !methodFinderList.isEmpty()) {
                 for (final MethodFinder methodFinder : methodFinderList) {
                     if (methodFinder.getType().isAssignableFrom(event.getClass())) {
-                        switch (methodFinder.getThreadMode()){
+                        switch (methodFinder.getThreadMode()) {
                             case MAIN:
                                 if (Looper.myLooper() == Looper.getMainLooper()) {
                                     invoke(methodFinder, obj, event);
-                                }else {
-                                    handler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            invoke(methodFinder, obj, event);
-                                        }
-                                    });
+                                } else {
+                                    mainThreadPoster.enqueue(methodFinder, event);
+//                                    handler.post(new Runnable() {
+//                                        @Override
+//                                        public void run() {
+//                                            invoke(methodFinder, obj, event);
+//                                        }
+//                                    });
                                 }
                                 break;
                             case POSTING:
@@ -79,12 +84,12 @@ public class MyEventBus {
                                             invoke(methodFinder, obj, event);
                                         }
                                     });
-                                }else {
+                                } else {
                                     invoke(methodFinder, obj, event);
                                 }
                                 break;
                             case ASYNC:
-
+                                asyncPoster.enqueue(methodFinder, event);
                                 break;
                         }
                     }
@@ -104,15 +109,16 @@ public class MyEventBus {
             e.printStackTrace();
         }
     }
+
     //从注解中查找方法列表
     private List<MethodFinder> findAnnotationMethod(Object subscriber) {
         List<MethodFinder> methodFinderList = new ArrayList<>();
         Class<?> clazz = subscriber.getClass();
         Method[] methods = clazz.getDeclaredMethods();
-        while(clazz != null) {
+        while (clazz != null) {
             String clazzName = clazz.getName();
             if (clazzName.startsWith("java.") || clazzName.startsWith("javax.") ||
-            clazzName.startsWith("android.") || clazzName.startsWith("androidx.")){
+                    clazzName.startsWith("android.") || clazzName.startsWith("androidx.")) {
                 break;
             }
             for (Method method : methods) {
@@ -123,18 +129,39 @@ public class MyEventBus {
                 }
                 Type returnType = method.getGenericReturnType();
                 if (!"void".equals(returnType.toString())) {
-                    throw new RuntimeException(method.getName()+ "方法返回必须void");
+                    throw new RuntimeException(method.getName() + "方法返回必须void");
                 }
                 Class<?>[] parameterType = method.getParameterTypes();
                 if (parameterType.length != 1) {
-                    throw new RuntimeException(method.getName()+ "方法只有一个参数");
+                    throw new RuntimeException(method.getName() + "方法只有一个参数");
                 }
-                MethodFinder methodFinder = new MethodFinder(parameterType[0], subscribe.threadMode(), method);
+                MethodFinder methodFinder = new MethodFinder(subscriber, parameterType[0], subscribe.threadMode(), method);
                 methodFinderList.add(methodFinder);
             }
             clazz = clazz.getSuperclass();
         }
 
         return methodFinderList;
+    }
+
+    void invokeSubscriber(PendingPost pendingPost) {
+        Object event = pendingPost.event;
+        MethodFinder methodFinder = pendingPost.methodFinder;
+        PendingPost.releasePendingPost(pendingPost);
+        invokeSubscriber(methodFinder, event);
+    }
+
+    void invokeSubscriber(MethodFinder methodFinder, Object event) {
+        try {
+            methodFinder.getMethod().invoke(methodFinder.getSubscriber(), event);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public ExecutorService getExecutorService() {
+        return executorService;
     }
 }

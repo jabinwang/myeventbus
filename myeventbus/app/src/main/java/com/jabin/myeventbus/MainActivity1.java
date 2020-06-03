@@ -21,15 +21,22 @@ public class MainActivity1 extends AppCompatActivity {
 
     @Subscribe(threadMode = ThreadMode.BACKGROUND) // 默认不填线程
     public void getMessage(EventBean bean) {
-        Log.e("EventBus >>1>> ", "thread = " + Thread.currentThread().getName());
-        Log.e("EventBus >>1>> ", "" + bean.getName());
+        Log.e("EventBus >>1>> ", "BACKGROUND thread = " + Thread.currentThread().getName());
+        Log.e("EventBus >>1>> ", "BACKGROUND " + bean.getName());
     }
 
-    @Subscribe(threadMode =  ThreadMode.MAIN)
+    @Subscribe(threadMode = ThreadMode.MAIN)
     public void getMessage1(EventBean bean) {
-        Log.e("EventBus >>1>> ", "thread = " + Thread.currentThread().getName());
-        Log.e("EventBus >>1>> ", "" + bean.getName());
+        Log.e("EventBus >>1>> ", "MAIN thread = " + Thread.currentThread().getName());
+        Log.e("EventBus >>1>> ", "MAIN " + bean.getName());
     }
+
+    @Subscribe(threadMode = ThreadMode.ASYNC)
+    public void getMessage2(EventBean eventBean) {
+        Log.e("EventBus >>1>> ", "ASYNC thread = " + Thread.currentThread().getName());
+        Log.e("EventBus >>1>> ", "ASYNC " + eventBean.getName());
+    }
+
     public void click(View view) {
         Intent intent = new Intent(this, SecondActivity.class);
         startActivity(intent);

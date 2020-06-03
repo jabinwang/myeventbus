@@ -3,6 +3,7 @@ package com.jabin.myeventbusref;
 import java.lang.reflect.Method;
 
 public class MethodFinder {
+    private Object subscriber;
     //subscriber 的参数类型
     private Class<?> type;
 
@@ -10,12 +11,21 @@ public class MethodFinder {
 
     private Method method;
 
-    public MethodFinder(Class<?> type, ThreadMode threadMode, Method method) {
+    public MethodFinder(Object subscriber, Class<?> type, ThreadMode threadMode, Method method) {
+        this.subscriber = subscriber;
         this.type = type;
         this.threadMode = threadMode;
         this.method = method;
     }
 
+
+    public Object getSubscriber() {
+        return subscriber;
+    }
+
+    public void setSubscriber(Object subscriber) {
+        this.subscriber = subscriber;
+    }
 
     public Class<?> getType() {
         return type;

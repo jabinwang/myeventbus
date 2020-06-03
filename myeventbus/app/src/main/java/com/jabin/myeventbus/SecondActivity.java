@@ -25,8 +25,8 @@ public class SecondActivity extends AppCompatActivity {
             }
         }.start();
 
-//        Log.e("EventBus >>2>> ", "thread = " + Thread.currentThread().getName());
-//        EventBus.getDefault().post(new EventBean("simon"));
+        Log.e("EventBus >>2>> ", "thread = " + Thread.currentThread().getName());
+        MyEventBus.getInstance().post(new EventBean("simon"));
         finish();
     }
 
